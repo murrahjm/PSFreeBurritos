@@ -4,7 +4,8 @@ function send-surveyanswers {
     #initial connection and retreive first formdata
     $web = invoke-webrequest https://chipotlefeedback.com
     $WebForm = $web.forms[0]
-
+    #nodeID appears to be unique to the session.  set it now then append it to each form for submission
+    $nodeID = $webform.fields.nodeID
     #loop through json array, for each set of form data, post the form data
     foreach ($item in $formdata){
         $hashtable = $item | ConvertPSObjectToHashtable
@@ -19,6 +20,8 @@ function send-surveyanswers {
         foreach ($item in $hashtable.keys){
             $WebForm.fields.add($item,$($hashtable.$item))
         }
+        #update nodeID field
+        $webform.fields.nodeID = $nodeID
         #submit form data
         invoke-restmethod -uri "https://chipotlefeedback.com$($WebForm.action)" -Method POST -Body $WebForm.fields
     }
