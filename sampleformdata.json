@@ -1,15 +1,15 @@
-﻿{"formvalues" : [
+﻿[
     {
+        "lang" : "en",
         "stay_main-pager":  "0",
         "nodeId":  "survey1",
         "ballotVer":  "2",
         "hmac":  null,
         "is_embedded":  "false",
         "defPgrAction":  "next",
-        "i_onf_q_chipotle_survey_invitation_method_alt_10":  "10",
+        "onf_q_chipotle_survey_invitation_method_alt":  "10",
         "spl_q_chipotle_receipt_code_txt":  null,
-        "beginButton":  "Begin Survey",
-        "screenReaderButton":  "If you are using a screen reader to interact with the content of this page. Please press here."
+        "forward_main-pager":  "Begin Survey"
     },
     {
         "stay_main-pager" : "3",
@@ -97,4 +97,3 @@
         "forward_main-pager" : "Finish"
     }
 ]
-}

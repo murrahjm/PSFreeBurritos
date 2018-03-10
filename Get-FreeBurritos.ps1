@@ -1,4 +1,5 @@
 function get-FreeBurritos {
+    [cmdletbinding(DefaultParameterSetName='byQuestions')]
     Param(
         [Parameter(Mandatory=$True,ParameterSetName='byanswerfile')]
         [ValidateScript({test-path $_})]
@@ -6,7 +7,7 @@ function get-FreeBurritos {
 
         [Parameter(Mandatory=$True,
         HelpMessage='Enter Receipt code with no spaces, numbers only')]
-        [ValidatePattern({^\d{24,24}$})]
+        [ValidatePattern({^\d{20,20}$})]
         [String]$ReceiptCode,
 
         [Parameter(Mandatory=$True,
@@ -161,14 +162,14 @@ function get-FreeBurritos {
         [Parameter(ParameterSetName='byQuestions')]
         [Switch]$ExportAnswerFile
         )
-    $formattedReceiptCode = Convert-ReceiptCode -code $receiptcode
+    $formattedReceiptCode = $ReceiptCode.insert(3,' ').insert(7,' ').insert(11,' ').insert(15,' ').insert(19,' ').insert(23,' ')
     if ($answerfile){
-        $formdata = get-content $answerfile | convertfrom-json | select-object -ExpandProperty formvalues
+        $formdata = get-content $answerfile | convertfrom-json
         $formdata[0].spl_q_chipotle_receipt_code_txt = $formattedReceiptCode
     } else {
         #start with sample form data and modify values based on parameters
-        $formdata = $sampleformdata
-        $formdata[0].spl_q_chipotle_receipt_code_txt = $ReceiptCode
+        $formdata = get-content "$PSScriptRoot\sampleformdata.json" | convertfrom-json
+        $formdata[0].spl_q_chipotle_receipt_code_txt = $formattedReceiptCode
         $formdata[1].onf_q_chipotle_overall_experience_5ptscale = $OverallExperience
         $formdata[1].spl_q_chipotle_reason_for_score_cmt = $ReasonForScore
         $formdata[1].onf_q_chipotle_likelihood_to_return_30_days_5pt_ltrscale = $LikelihoodtoReturnwithin30Days
@@ -237,11 +238,65 @@ function get-FreeBurritos {
             $formdata[7].spl_q_chipotle_customer_email_address_txt = $EmailAddress
         }
         If ($ExportAnswerFile){
-            $formdata | ConvertTo-Json | set-content -Path "$($pscmdlet.MyInvocation.PSCommandPath)\SurveyAnswers.json"
+            $formdata | ConvertTo-Json | set-content -Path "$PSScriptRoot\SurveyAnswers.json"
         }
     }
     #
     Send-surveyanswers -Formdata $formdata
-
 }
 
+function send-surveyanswers {
+    [Cmdletbinding()]
+    Param($Formdata)
+    $url = 'https://www.chipotlefeedback.com'
+    #initial connection and retreive first formdata
+    $webrequest = invoke-webrequest $url -SessionVariable websession
+    $WebForm = $webrequest.forms[0]
+    #nodeID appears to be unique to the session.  set it now then append it to each form for submission
+    $nodeID = $webform.fields.nodeId
+    #loop through json array, for each set of form data, post the form data
+    foreach ($item in $formdata){
+        #update nodeID field
+        $item.nodeId = $nodeID
+        $hashtable = $item | ConvertPSObjectToHashtable
+        #submit form data
+        $return = invoke-webrequest -uri "$url$($WebForm.action)" -Method POST -Body $hashtable -WebSession $websession
+    }
+}
+
+function ConvertPSObjectToHashtable
+{
+    param (
+        [Parameter(ValueFromPipeline)]
+        $InputObject
+    )
+
+    process
+    {
+        if ($null -eq $InputObject) { return $null }
+
+        if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string])
+        {
+            $collection = @(
+                foreach ($object in $InputObject) { ConvertPSObjectToHashtable $object }
+            )
+
+            Write-Output -NoEnumerate $collection
+        }
+        elseif ($InputObject -is [psobject])
+        {
+            $hash = @{}
+
+            foreach ($property in $InputObject.PSObject.Properties)
+            {
+                $hash[$property.Name] = ConvertPSObjectToHashtable $property.Value
+            }
+
+            $hash
+        }
+        else
+        {
+            $InputObject
+        }
+    }
+}
