@@ -254,13 +254,17 @@ function send-surveyanswers {
     $WebForm = $webrequest.forms[0]
     #nodeID appears to be unique to the session.  set it now then append it to each form for submission
     $nodeID = $webform.fields.nodeId
+    $nextballotVer = '2'
     #loop through json array, for each set of form data, post the form data
     foreach ($item in $formdata){
         #update nodeID field
         $item.nodeId = $nodeID
+        $item.ballotVer = $nextballotVer
         $hashtable = $item | ConvertPSObjectToHashtable
         #submit form data
+        write-verbose $hashtable
         $return = invoke-webrequest -uri "$url$($WebForm.action)" -Method POST -Body $hashtable -WebSession $websession
+        $nextballotVer = $return.forms[0].fields.ballotVer
     }
 }
 
