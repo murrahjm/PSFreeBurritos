@@ -14,7 +14,7 @@
     {
         "stay_main-pager" : "3",
         "nodeId" : "survey1",
-        "ballotVer" : "4",
+        "ballotVer" : "3",
         "hmac" : "",
         "is_embedded" : "false",
         "defPgrAction" : "next",
