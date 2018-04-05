@@ -252,15 +252,46 @@ function send-surveyanswers {
     #initial connection and retreive first formdata
     $webrequest = invoke-webrequest $url -SessionVariable websession
     $WebForm = $webrequest.forms[0]
-    #nodeID appears to be unique to the session.  set it now then append it to each form for submission
+    #nodeID and ballotVer appear to be unique to the session.  set it now then append it to each form for submission
     $nodeID = $webform.fields.nodeId
+    $nextBallotVer = $webform.fields.ballotVer
     #loop through json array, for each set of form data, post the form data
+    Write-Progress -Activity "Gathering Free Burritos" -Status "Submitting Form Data" -PercentComplete 0
     foreach ($item in $formdata){
         #update nodeID field
         $item.nodeId = $nodeID
+        $item.ballotVer = $nextBallotVer
         $hashtable = $item | ConvertPSObjectToHashtable
         #submit form data
         $return = invoke-webrequest -uri "$url$($WebForm.action)" -Method POST -Body $hashtable -WebSession $websession
+        $nextBallotVer = $return.forms[0].fields.ballotVer
+        $ReturnMessages = $return.allelements.where{$_.tagName -eq "BODY"}.innerHTML
+        #check return data for errors
+        if ($ReturnMessages.where{$_ -like "*receipt code you entered has already been used*"}){
+            write-error "The Receipt code you entered has already been used to complete a survey"
+            return
+        }
+        if ($ReturnMessages.where{$_ -like "*class=`"error-block readable-text`"*"}){
+            Write-error $ReturnMessages.split('<').where{$_ -like "*class=`"error-block readable-text`"*"}.split('<>')[1]
+            return
+        }
+        #if no errors get progress or completed state
+        $CompletedData = $return.allelements.where{$_.tagName -eq "BODY"}.innerHTML.where{$_ -like "*Thank You!*"}
+        if ($ReturnMessages.where{$_ -like "*class=progress-bar*"}){
+            $SurveyProgress = $ReturnMessages.split('<').where{$_ -like "*class=progress-bar*"}.split(' ').where{$_ -like "*%"}.replace('%','')
+        }
+        if ($CompletedData){
+            $SurveyProgress = '100'
+            $outputMessage = $Completeddata.split('<>').where{$_ -like "Thank You *"}
+        }
+        #output progress or completed state
+        write-verbose "SurveyProgress: $surveyprogress"
+        if ($SurveyProgress){
+            Write-Progress -Activity "Gathering Free Burritos" -Status "Submitting Form Data" -PercentComplete $SurveyProgress
+        }
+        if ($outputMessage){
+            return $outputMessage
+        }
     }
 }
 
